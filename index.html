@@ -1,185 +1,649 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
 
-<!DOCTYPE html>
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mathy(Beta)</title>
+    <title>Siloam Mission Housing Project Evaluation Scoring Sheet</title>
     <style>
-    body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #eaeaea;
-            color: #333;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-        }
-
-        .container {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            margin: 40px auto;
-        }
-
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-
-        button {
-            background-color: #4CAF50;
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1, h2, h3 { color: #333; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .input-field { width: 100px; margin: 2px; }
+        .score-field { width: 60px; }
+        .help-bubble { cursor: pointer; color: blue; text-decoration: underline; position: relative; }
+        .help-bubble:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            background-color: #333;
             color: white;
-            padding: 10px 15px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            width: 300px;
+            z-index: 10;
+            top: 20px;
+            left: 0;
+            font-size: 0.9em;
         }
-
-        button:hover {
-            background-color: #45a049;
-        }
-
-        footer {
-            font-size: 0.8em;
-            margin-top: 20px;
-        }
+        .total-score { font-weight: bold; font-size: 1.2em; }
+        .guide-link { margin-bottom: 20px; }
+        .recommendation { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+        .project-info { margin-bottom: 20px; }
+        .submit-button { margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        .submit-button:hover { background-color: #45a049; }
+        .error { color: red; font-size: 0.8em; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Mathy(Beta)</h1>
-        <div id="game-container">
-            <p>Enter your name:</p>
-            <input type="text" id="player-name">
-            <button onclick="startGame()">Start Game</button>
-        </div>
-        <div id="score-container"></div>
-        <div id="message-container"></div>
-        <footer>
-            <p>Complete 100 Levels to Win<p>
-            <p>Game created by Rifat Rupok</p>
-            <p><a href="mailto:r.islam@beyond-peace.org">Get in Touch</a></p>
-        </footer>
+    <h1>Siloam Mission Housing Project Evaluation Scoring Sheet</h1>
+    <p class="guide-link">
+        <a href="https://onedrive.live.com/EXAMPLE_LINK" target="_blank">View Full Evaluation Guide</a>
+    </p>
+    <p>Enter project details and data for each sub-criterion. Scores are automatically calculated based on inputs. Hover over Help for detailed scoring criteria. Click Submit to email results to rifat.rupok@siloam.ca.</p>
+
+    <!-- Project Information -->
+    <div class="project-info">
+        <h3>Project Information</h3>
+        <label>Project Name: <input type="text" id="project_name" class="input-field"></label><br>
+        <label>Evaluator Name: <input type="text" id="evaluator_name" class="input-field"></label><br>
+        <label>Date: <input type="date" id="evaluation_date" class="input-field"></label><br>
+        <label>Evaluator Email: <input type="email" id="evaluator_email" class="input-field"></label>
     </div>
-<script>
-    let playerName = "";
-    let score = 0;
-    let timeLimit = 10; // Initial time limit
-    let level = 1;
-    let timer;
-    let startTime;
 
-    function startGame() {
-        playerName = document.getElementById("player-name").value;
-        if (playerName === "") {
-            alert("Please enter your name.");
-            return;
-        }
-        resetGame();
-        nextLevel();
-        startTime = new Date();
-    }
+    <!-- Criterion 1: Operational Funding Viability -->
+    <h2>Criterion 1: Operational Funding Viability</h2>
+    <table>
+        <tr><th>Sub-Criterion</th><th>Input</th><th>Score</th><th>Help</th></tr>
+        <tr>
+            <td>1.1 Funding Coverage Ratio</td>
+            <td>
+                Secured Funding ($): <input type="number" id="c1_1_secured" class="input-field" min="0"><br>
+                Required Funding ($): <input type="number" id="c1_1_required" class="input-field" min="0">
+                <div id="c1_1_error" class="error"></div>
+            </td>
+            <td><select id="c1_1_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = (Secured ÷ Required) × 100. Scoring: >100% = +5, 100% = +4, 91-100% = +3, 76-90% = +2, 61-75% = +1, 41-60% = 0, 21-40% = -1, 1-20% = -2, 0% = -3. Example: $1.2M secured, $1.5M required = 80% (+2).">Help</span></td>
+        </tr>
+        <tr>
+            <td>1.2 Funding Duration Security</td>
+            <td>Years Committed: <input type="number" id="c1_2_years" class="input-field" min="0"></td>
+            <td><select id="c1_2_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: >10 years = +5, 8-10 years = +4, 5-7 years = +3, 4 years = +2, 3 years = +1, 2 years = 0, 1 year = -1, <1 year = -2, 0 years = -3. Example: 5 years = +3.">Help</span></td>
+        </tr>
+        <tr>
+            <td>1.3 Financial Capacity Buffer</td>
+            <td>
+                Reserves ($): <input type="number" id="c1_3_reserves" class="input-field" min="0"><br>
+                Annual Cost ($): <input type="number" id="c1_3_cost" class="input-field" min="0">
+                <div id="c1_3_error" class="error"></div>
+            </td>
+            <td><select id="c1_3_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = Reserves ÷ Cost. Scoring: ≥10 = +5, 5-9.99 = +4, 3-4.99 = +3, 2-2.99 = +2, 1-1.99 = +1, 0.5-0.99 = 0, 0.25-0.49 = -1, 0.1-0.24 = -2, <0.1 = -3. Example: $3M reserves, $1M cost = 3.0 (+3).">Help</span></td>
+        </tr>
+        <tr>
+            <td>1.4 Funding Source Diversification</td>
+            <td>Number of Sources: <input type="number" id="c1_4_sources" class="input-field" min="0"></td>
+            <td><select id="c1_4_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: ≥10 sources = +5, 8-9 = +4, 6-7 = +3, 5 = +2, 4 = +1, 3 = 0, 2 = -1, 1 = -2, 0 = -3. Example: 6 sources = +3.">Help</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Criterion 1 Score</strong></td>
+            <td id="c1_score">0</td>
+            <td></td>
+        </tr>
+    </table>
 
-    function resetGame() {
-        document.getElementById("game-container").innerHTML = "";
-        document.getElementById("score-container").innerHTML = "";
-        document.getElementById("message-container").innerHTML = "";
-        score = 0;
-        level = 1;
-        timeLimit = 10; // Reset time limit for new game
-    }
+    <!-- Criterion 2: Capital Funding Security -->
+    <h2>Criterion 2: Capital Funding Security</h2>
+    <table>
+        <tr><th>Sub-Criterion</th><th>Input</th><th>Score</th><th>Help</th></tr>
+        <tr>
+            <td>2.1 Capital Funding Secured</td>
+            <td>
+                Secured Capital ($): <input type="number" id="c2_1_secured" class="input-field" min="0"><br>
+                Total Capital ($): <input type="number" id="c2_1_total" class="input-field" min="0">
+                <div id="c2_1_error" class="error"></div>
+            </td>
+            <td><select id="c2_1_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = (Secured ÷ Total) × 100. Scoring: >100% = +5, 100% = +4, 91-100% = +3, 76-90% = +2, 61-75% = +1, 41-60% = 0, 21-40% = -1, 1-20% = -2, 0% = -3. Example: $13.5M secured, $15M total = 90% (+2).">Help</span></td>
+        </tr>
+        <tr>
+            <td>2.2 Funding Terms Favorability</td>
+            <td><select id="c2_2_terms" class="input-field">
+                <option value="Predatory">Predatory</option><option value="Poor">Poor</option>
+                <option value="Below market">Below market</option><option value="Market rate">Market rate</option>
+                <option value="Favorable">Favorable</option><option value="Very favorable">Very favorable</option>
+                <option value="Excellent">Excellent</option><option value="Subsidized">Subsidized</option>
+                <option value="Grant funding">Grant funding</option>
+            </select></td>
+            <td><select id="c2_2_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: Grant funding = +5, Subsidized = +4, Excellent = +3, Very favorable = +2, Favorable = +1, Market rate = 0, Below market = -1, Poor = -2, Predatory = -3. Example: Grant funding = +5.">Help</span></td>
+        </tr>
+        <tr>
+            <td>2.3 Capital Funding Timeline</td>
+            <td>Months to Secure: <input type="number" id="c2_3_months" class="input-field" min="0"></td>
+            <td><select id="c2_3_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: 0 months = +5, 1-3 months = +4, 4-6 months = +3, 7-9 months = +2, 10-12 months = +1, 13-18 months = 0, 19-24 months = -1, 25-36 months = -2, >36 months = -3. Example: 3 months = +4.">Help</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Criterion 2 Score</strong></td>
+            <td id="c2_score">0</td>
+            <td></td>
+        </tr>
+    </table>
 
-    function nextLevel() {
-        if (level <= 100) {
-            const numbers = generateRandomNumbers(level + 1); // Start with 2 numbers at level 1
-            const correctSum = numbers.reduce((acc, num) => acc + num, 0);
+    <!-- Criterion 3: Investment Outcomes & Value -->
+    <h2>Criterion 3: Investment Outcomes & Value</h2>
+    <table>
+        <tr><th>Sub-Criterion</th><th>Input</th><th>Score</th><th>Help</th></tr>
+        <tr>
+            <td>3.1 Cost Efficiency per Unit</td>
+            <td>
+                Cost per Unit ($): <input type="number" id="c3_1_cost" class="input-field" min="0"><br>
+                Regional Average ($): <input type="number" id="c3_1_regional" class="input-field" min="0">
+                <div id="c3_1_error" class="error"></div>
+            </td>
+            <td><select id="c3_1_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = (Cost ÷ Regional) × 100. Scoring: ≤25% = +5, 26-50% = +4, 51-75% = +3, 76-100% = +2, 101-125% = +1, 126-150% = 0, 151-175% = -1, 176-200% = -2, >200% = -3. Example: $180K cost, $200K regional = 90% (+2).">Help</span></td>
+        </tr>
+        <tr>
+            <td>3.2 Population Impact Efficiency</td>
+            <td>
+                Units Created: <input type="number" id="c3_2_units" class="input-field" min="0"><br>
+                Target Population Size: <input type="number" id="c3_2_population" class="input-field" min="0">
+                <div id="c3_2_error" class="error"></div>
+            </td>
+            <td><select id="c3_2_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = (Units ÷ Population) × 100. Scoring: >40% = +5, 25-40% = +4, 15-24% = +3, 10-14% = +2, 5-9% = +1, 2-4% = 0, 1-1.99% = -1, 0.5-0.99% = -2, <0.5% = -3. Example: 50 units, 306 youth = 16.34% (+3). Data: Indigenous (~1,025), women (~600), youth (~306), seniors 50+ (~405).">Help</span></td>
+        </tr>
+        <tr>
+            <td>3.3 Economic Value Creation</td>
+            <td>Jobs Created: <input type="number" id="c3_3_jobs" class="input-field" min="0"></td>
+            <td><select id="c3_3_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: >75 jobs = +5, 51-75 = +4, 36-50 = +3, 21-35 = +2, 11-20 = +1, 6-10 = 0, 3-5 = -1, 1-2 = -2, 0 = -3. Example: 45 jobs = +3.">Help</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Criterion 3 Score</strong></td>
+            <td id="c3_score">0</td>
+            <td></td>
+        </tr>
+    </table>
 
-            document.getElementById("game-container").innerHTML = `
-                <p>Level ${level}: Add ${numbers.join(" + ")}</p>
-                <input type="number" id="player-answer">
-                <button onclick="checkAnswer(${correctSum})">Submit</button>
-                <p>Time left: <span id="time-left">${timeLimit}</span> seconds</p>
-            `;
+    <!-- Criterion 4: Demonstrated Need -->
+    <h2>Criterion 4: Demonstrated Need</h2>
+    <table>
+        <tr><th>Sub-Criterion</th><th>Input</th><th>Score</th><th>Help</th></tr>
+        <tr>
+            <td>4.1 Target Population Size</td>
+            <td>Population Size: <input type="number" id="c4_1_size" class="input-field" min="0"></td>
+            <td><select id="c4_1_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: >700 = +5, 401-700 = +4, 201-400 = +3, 101-200 = +2, 51-100 = +1, 26-50 = 0, 11-25 = -1, 1-10 = -2, 0 = -3. Example: Indigenous women (~600) = +4. Data: Indigenous (~1,025), women (~600), youth (~306), seniors 50+ (~405).">Help</span></td>
+        </tr>
+        <tr>
+            <td>4.2 Vulnerability Severity</td>
+            <td><select id="c4_2_severity" class="input-field">
+                <option value="No vulnerability">No vulnerability</option><option value="Low vulnerability">Low vulnerability</option>
+                <option value="Moderate-low">Moderate-low</option><option value="Moderate">Moderate</option>
+                <option value="Moderate-high">Moderate-high</option><option value="High">High</option>
+                <option value="Very high">Very high</option><option value="Critical">Critical</option>
+                <option value="Emergency">Emergency</option>
+            </select></td>
+            <td><select id="c4_2_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: Emergency = +5, Critical = +4, Very high = +3, High = +2, Moderate-high = +1, Moderate = 0, Moderate-low = -1, Low vulnerability = -2, No vulnerability = -3. Example: Chronically homeless seniors = +3. Data: 60% report substance use, 75% Indigenous chronic homelessness.">Help</span></td>
+        </tr>
+        <tr>
+            <td>4.3 Service Gap Analysis</td>
+            <td>
+                Existing Units: <input type="number" id="c4_3_units" class="input-field" min="0"><br>
+                Identified Need: <input type="number" id="c4_3_need" class="input-field" min="0">
+                <div id="c4_3_error" class="error"></div>
+            </td>
+            <td><select id="c4_3_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = (Units ÷ Need) × 100. Scoring: <1% = +5, 1-4% = +4, 5-9% = +3, 10-24% = +2, 25-49% = +1, 50-74% = 0, 75-89% = -1, 90-100% = -2, >100% = -3. Example: 50 units, 1,025 need = 4.88% (+4).">Help</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Criterion 4 Score</strong></td>
+            <td id="c4_score">0</td>
+            <td></td>
+        </tr>
+    </table>
 
-            document.getElementById("player-answer").focus();
-            startTimer();
-        } else {
-            endGame(true); // Player wins the game
-        }
-    }
+    <!-- Criterion 5: Strategic Alignment -->
+    <h2>Criterion 5: Strategic Alignment</h2>
+    <table>
+        <tr><th>Sub-Criterion</th><th>Input</th><th>Score</th><th>Help</th></tr>
+        <tr>
+            <td>5.1 Priority Population Alignment</td>
+            <td>Number of Populations: <input type="number" id="c5_1_populations" class="input-field" min="0"></td>
+            <td><select id="c5_1_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: ≥5 populations = +5, 4 = +4, 3 = +3, 2 = +2, 1 = +1, 0 = 0. Example: Seniors + Indigenous women = 2 (+2). Populations: seniors, emergency, recovery, youth, Indigenous women/2-Spirit.">Help</span></td>
+        </tr>
+        <tr>
+            <td>5.2 Government Priority Alignment</td>
+            <td><select id="c5_2_alignment" class="input-field">
+                <option value="Conflicts with all">Conflicts with all</option><option value="Conflicts with most">Conflicts with most</option>
+                <option value="Limited alignment">Limited alignment</option><option value="Moderate alignment">Moderate alignment</option>
+                <option value="Good alignment">Good alignment</option><option value="Strong alignment">Strong alignment</option>
+                <option value="Very strong alignment">Very strong alignment</option><option value="Perfect alignment">Perfect alignment</option>
+                <option value="Flagship alignment">Flagship alignment</option>
+            </select></td>
+            <td><select id="c5_2_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: Flagship alignment = +5, Perfect alignment = +4, Very strong alignment = +3, Strong alignment = +2, Good alignment = +1, Moderate alignment = 0, Limited alignment = -1, Conflicts with most = -2, Conflicts with all = -3. Example: Indigenous women + recovery housing = +3.">Help</span></td>
+        </tr>
+        <tr>
+            <td>5.3 Best Practice Integration</td>
+            <td>Number of Practices: <input type="number" id="c5_3_practices" class="input-field" min="0"></td>
+            <td><select id="c5_3_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: ≥10 practices = +5, 8-9 = +4, 6-7 = +3, 5 = +2, 4 = +1, 3 = 0, 2 = -1, 1 = -2, 0 = -3. Example: 6 practices = +3. Practices: Housing First, cultural safety, trauma-informed care, etc.">Help</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Criterion 5 Score</strong></td>
+            <td id="c5_score">0</td>
+            <td></td>
+        </tr>
+    </table>
 
-    function startTimer() {
-        clearInterval(timer); // Clear existing timer if any
-        timer = setInterval(function () {
-            timeLimit--;
-            document.getElementById("time-left").textContent = timeLimit;
-            if (timeLimit <= 0) {
-                clearInterval(timer);
-                endGame(false); // Time ran out
+    <!-- Criterion 6: Location Suitability -->
+    <h2>Criterion 6: Location Suitability</h2>
+    <table>
+        <tr><th>Sub-Criterion</th><th>Input</th><th>Score</th><th>Help</th></tr>
+        <tr>
+            <td>6.1 Regulatory Feasibility</td>
+            <td>Months to Permits: <input type="number" id="c6_1_months" class="input-field" min="0"></td>
+            <td><select id="c6_1_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: 0 months = +5, 1 month = +4, 2 months = +3, 3-4 months = +2, 5-6 months = +1, 7-9 months = 0, 10-12 months = -1, 13-18 months = -2, >18 months = -3. Example: 2 months = +3.">Help</span></td>
+        </tr>
+        <tr>
+            <td>6.2 Construction Readiness</td>
+            <td>Months to Start: <input type="number" id="c6_2_months" class="input-field" min="0"></td>
+            <td><select id="c6_2_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: 0 months = +5, 1 month = +4, 2 months = +3, 3 months = +2, 4-6 months = +1, 7-9 months = 0, 10-12 months = -1, 13-18 months = -2, >18 months = -3. Example: 1 month = +4.">Help</span></td>
+        </tr>
+        <tr>
+            <td>6.3 Accessibility Score</td>
+            <td>
+                <select id="c6_3_population" class="input-field">
+                    <option value="Seniors">Seniors</option><option value="Emergency">Emergency</option>
+                    <option value="Recovery">Recovery</option><option value="Youth">Youth</option>
+                    <option value="Indigenous Women/2-Spirit">Indigenous Women/2-Spirit</option>
+                </select><br>
+                Distance to Amenities (m): <input type="number" id="c6_3_distance" class="input-field" min="0">
+            </td>
+            <td><select id="c6_3_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring (distance in meters): ≤50m = +5, 51-100m = +4, 101-200m = +3, 201-500m = +2, 501-1000m = +1, 1001-2000m = 0, 2001-3000m = -1, 3001-5000m = -2, >5000m = -3. Example: 200m for youth = +3. Amenities: healthcare, transit, community services.">Help</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Criterion 6 Score</strong></td>
+            <td id="c6_score">0</td>
+            <td></td>
+        </tr>
+    </table>
+
+    <!-- Criterion 7: Long-Term Sustainability -->
+    <h2>Criterion 7: Long-Term Sustainability</h2>
+    <table>
+        <tr><th>Sub-Criterion</th><th>Input</th><th>Score</th><th>Help</th></tr>
+        <tr>
+            <td>7.1 Financial Sustainability Projection</td>
+            <td>
+                Revenue + Funding ($): <input type="number" id="c7_1_revenue" class="input-field" min="0"><br>
+                Operating Costs ($): <input type="number" id="c7_1_costs" class="input-field" min="0">
+                <div id="c7_1_error" class="error"></div>
+            </td>
+            <td><select id="c7_1_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = (Revenue + Funding) ÷ Costs. Scoring: ≥3 = +5, 2-2.99 = +4, 1.5-1.99 = +3, 1.25-1.49 = +2, 1.1-1.24 = +1, 0.9-1.09 = 0, 0.75-0.89 = -1, 0.5-0.74 = -2, <0.5 = -3. Example: $2M revenue, $1M costs = 2.0 (+4).">Help</span></td>
+        </tr>
+        <tr>
+            <td>7.2 Maintenance Cost Efficiency</td>
+            <td>
+                Maintenance Costs ($): <input type="number" id="c7_2_maintenance" class="input-field" min="0"><br>
+                Project Cost ($): <input type="number" id="c7_2_project" class="input-field" min="0">
+                <div id="c7_2_error" class="error"></div>
+            </td>
+            <td><select id="c7_2_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Ratio = (Maintenance ÷ Project) × 100. Scoring: <0.5% = +5, 0.5-1% = +4, 1.1-2% = +3, 2.1-3% = +2, 3.1-4% = +1, 4.1-7% = 0, 7.1-10% = -1, 10.1-15% = -2, >15% = -3. Example: $80K maintenance, $4M project = 2% (+3).">Help</span></td>
+        </tr>
+        <tr>
+            <td>7.3 Support Service Sustainability</td>
+            <td><select id="c7_3_services" class="input-field">
+                <option value="No services">No services</option><option value="Minimal services">Minimal services</option>
+                <option value="Basic services">Basic services</option><option value="Adequate services">Adequate services</option>
+                <option value="Good services">Good services</option><option value="Comprehensive services">Comprehensive services</option>
+                <option value="Extensive services">Extensive services</option><option value="Exceptional services">Exceptional services</option>
+                <option value="Integrated services">Integrated services</option>
+            </select></td>
+            <td><select id="c7_3_score" class="score-field" disabled>
+                <option value="-3">-3</option><option value="-2">-2</option><option value="-1">-1</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            </select></td>
+            <td><span class="help-bubble" data-tooltip="Scoring: Integrated services = +5, Exceptional services = +4, Extensive services = +3, Comprehensive services = +2, Good services = +1, Adequate services = 0, Basic services = -1, Minimal services = -2, No services = -3. Example: Comprehensive services = +2.">Help</span></td>
+        </tr>
+        <tr>
+            <td colspan="2"><strong>Criterion 7 Score</strong></td>
+            <td id="c7_score">0</td>
+            <td></td>
+        </tr>
+    </table>
+
+    <!-- Total Score and Recommendation -->
+    <h2>Total Score and Recommendation</h2>
+    <div class="total-score">
+        Total Score: <span id="total_score">0</span> / 35
+    </div>
+    <div class="recommendation" id="recommendation">
+        Recommendation: <span id="recommendation_text">Enter scores to see recommendation</span>
+    </div>
+    <button class="submit-button" onclick="submitScores()">Submit Scores</button>
+
+    <script>
+        // Auto-calculate scores based on input
+        function calculateScore(id, value, type) {
+            let score = -3;
+            let errorDiv = document.getElementById(`${id}_error`);
+            if (errorDiv) errorDiv.innerText = '';
+
+            if (type === 'ratio') {
+                let [numerator, denominator] = value;
+                if (denominator === 0 || isNaN(denominator) || isNaN(numerator)) {
+                    if (errorDiv) errorDiv.innerText = 'Please enter valid non-zero values.';
+                    document.getElementById(`${id}_score`).value = -3;
+                    calculateCriterionScore(id.split('_')[0].replace('c', ''));
+                    calculateTotalScore();
+                    return;
+                }
+                let ratio = (numerator / denominator) * 100;
+                if (id === 'c1_1' || id === 'c2_1') {
+                    score = ratio > 100 ? 5 : ratio >= 100 ? 4 : ratio >= 91 ? 3 : ratio >= 76 ? 2 : ratio >= 61 ? 1 : ratio >= 41 ? 0 : ratio >= 21 ? -1 : ratio >= 1 ? -2 : -3;
+                } else if (id === 'c3_1') {
+                    score = ratio <= 25 ? 5 : ratio <= 50 ? 4 : ratio <= 75 ? 3 : ratio <= 100 ? 2 : ratio <= 125 ? 1 : ratio <= 150 ? 0 : ratio <= 175 ? -1 : ratio <= 200 ? -2 : -3;
+                } else if (id === 'c3_2') {
+                    score = ratio > 40 ? 5 : ratio >= 25 ? 4 : ratio >= 15 ? 3 : ratio >= 10 ? 2 : ratio >= 5 ? 1 : ratio >= 2 ? 0 : ratio >= 1 ? -1 : ratio >= 0.5 ? -2 : -3;
+                } else if (id === 'c4_3') {
+                    score = ratio < 1 ? 5 : ratio <= 4 ? 4 : ratio <= 9 ? 3 : ratio <= 24 ? 2 : ratio <= 49 ? 1 : ratio <= 74 ? 0 : ratio <= 89 ? -1 : ratio <= 100 ? -2 : -3;
+                } else if (id === 'c7_1') {
+                    score = ratio >= 3 ? 5 : ratio >= 2 ? 4 : ratio >= 1.5 ? 3 : ratio >= 1.25 ? 2 : ratio >= 1.1 ? 1 : ratio >= 0.9 ? 0 : ratio >= 0.75 ? -1 : ratio >= 0.5 ? -2 : -3;
+                } else if (id === 'c7_2') {
+                    score = ratio < 0.5 ? 5 : ratio <= 1 ? 4 : ratio <= 2 ? 3 : ratio <= 3 ? 2 : ratio <= 4 ? 1 : ratio <= 7 ? 0 : ratio <= 10 ? -1 : ratio <= 15 ? -2 : -3;
+                } else if (id === 'c1_3') {
+                    score = ratio >= 10 ? 5 : ratio >= 5 ? 4 : ratio >= 3 ? 3 : ratio >= 2 ? 2 : ratio >= 1 ? 1 : ratio >= 0.5 ? 0 : ratio >= 0.25 ? -1 : ratio >= 0.1 ? -2 : -3;
+                }
+            } else if (type === 'number') {
+                if (isNaN(value) || value < 0) {
+                    document.getElementById(`${id}_score`).value = -3;
+                    calculateCriterionScore(id.split('_')[0].replace('c', ''));
+                    calculateTotalScore();
+                    return;
+                }
+                if (id === 'c1_2') {
+                    score = value > 10 ? 5 : value >= 8 ? 4 : value >= 5 ? 3 : value >= 4 ? 2 : value >= 3 ? 1 : value >= 2 ? 0 : value >= 1 ? -1 : value >= 0 ? -2 : -3;
+                } else if (id === 'c1_4' || id === 'c5_3') {
+                    score = value >= 10 ? 5 : value >= 8 ? 4 : value >= 6 ? 3 : value >= 5 ? 2 : value >= 4 ? 1 : value >= 3 ? 0 : value >= 2 ? -1 : value >= 1 ? -2 : -3;
+                } else if (id === 'c3_3') {
+                    score = value > 75 ? 5 : value >= 51 ? 4 : value >= 36 ? 3 : value >= 21 ? 2 : value >= 11 ? 1 : value >= 6 ? 0 : value >= 3 ? -1 : value >= 1 ? -2 : -3;
+                } else if (id === 'c4_1') {
+                    score = value > 700 ? 5 : value >= 401 ? 4 : value >= 201 ? 3 : value >= 101 ? 2 : value >= 51 ? 1 : value >= 26 ? 0 : value >= 11 ? -1 : value >= 1 ? -2 : -3;
+                } else if (id === 'c5_1') {
+                    score = value >= 5 ? 5 : value >= 4 ? 4 : value >= 3 ? 3 : value >= 2 ? 2 : value >= 1 ? 1 : value >= 0 ? 0 : -3;
+                } else if (id === 'c6_1' || id === 'c6_2') {
+                    score = value <= 0 ? 5 : value <= 1 ? 4 : value <= 2 ? 3 : value <= 4 ? 2 : value <= 6 ? 1 : value <= 9 ? 0 : value <= 12 ? -1 : value <= 18 ? -2 : -3;
+                } else if (id === 'c6_3') {
+                    score = value <= 50 ? 5 : value <= 100 ? 4 : value <= 200 ? 3 : value <= 500 ? 2 : value <= 1000 ? 1 : value <= 2000 ? 0 : value <= 3000 ? -1 : value <= 5000 ? -2 : -3;
+                } else if (id === 'c2_3') {
+                    score = value <= 0 ? 5 : value <= 3 ? 4 : value <= 6 ? 3 : value <= 9 ? 2 : value <= 12 ? 1 : value <= 18 ? 0 : value <= 24 ? -1 : value <= 36 ? -2 : -3;
+                }
+            } else if (type === 'dropdown') {
+                if (id === 'c2_2') {
+                    score = value === 'Grant funding' ? 5 : value === 'Subsidized' ? 4 : value === 'Excellent' ? 3 : value === 'Very favorable' ? 2 : value === 'Favorable' ? 1 : value === 'Market rate' ? 0 : value === 'Below market' ? -1 : value === 'Poor' ? -2 : -3;
+                } else if (id === 'c4_2') {
+                    score = value === 'Emergency' ? 5 : value === 'Critical' ? 4 : value === 'Very high' ? 3 : value === 'High' ? 2 : value === 'Moderate-high' ? 1 : value === 'Moderate' ? 0 : value === 'Moderate-low' ? -1 : value === 'Low vulnerability' ? -2 : -3;
+                } else if (id === 'c5_2') {
+                    score = value === 'Flagship alignment' ? 5 : value === 'Perfect alignment' ? 4 : value === 'Very strong alignment' ? 3 : value === 'Strong alignment' ? 2 : value === 'Good alignment' ? 1 : value === 'Moderate alignment' ? 0 : value === 'Limited alignment' ? -1 : value === 'Conflicts with most' ? -2 : -3;
+                } else if (id === 'c7_3') {
+                    score = value === 'Integrated services' ? 5 : value === 'Exceptional services' ? 4 : value === 'Extensive services' ? 3 : value === 'Comprehensive services' ? 2 : value === 'Good services' ? 1 : value === 'Adequate services' ? 0 : value === 'Basic services' ? -1 : value === 'Minimal services' ? -2 : -3;
+                }
             }
-        }, 1000);
-    }
-
-    function checkAnswer(correctSum) {
-        const playerAnswer = parseInt(document.getElementById("player-answer").value);
-        if (playerAnswer === correctSum) {
-            score = level; // Increase score for each correct answer
-            level++;
-            timeLimit += 5; // Add 5 seconds for the next level
-            nextLevel();
-        } else {
-            document.getElementById("message-container").innerHTML = "<p style='color:red;'>Incorrect answer. Try again!</p>";
+            document.getElementById(`${id}_score`).value = score;
+            calculateCriterionScore(id.split('_')[0].replace('c', ''));
+            calculateTotalScore();
         }
-    }
 
-    function endGame(playerWon) {
-        clearInterval(timer);
-        let endMessage = playerWon ? `Congratulations! You completed all 100 levels! ` : "Game Over!";
-        endMessage += ` Your final score: ${score}.`;
-
-        document.getElementById("game-container").innerHTML = `
-            <h3>${endMessage}</h3>
-            <button onclick="location.reload()">Play Again</button>
-        `;
-    }
-
-    function generateRandomNumbers(count) {
-        const numbers = [];
-        for (let i = 0; i < count; i++) {
-            numbers.push(Math.floor(Math.random() * 90) + 10);
+        // Calculate criterion score
+        function calculateCriterionScore(criterion) {
+            let subCriteria = criterion === '1' ? 4 : 3;
+            let sum = 0;
+            for (let i = 1; i <= subCriteria; i++) {
+                sum += parseInt(document.getElementById(`c${criterion}_${i}_score`).value) || 0;
+            }
+            let avg = Math.round(sum / subCriteria);
+            document.getElementById(`c${criterion}_score`).innerText = avg;
         }
-        return numbers;
-    }
-</script>
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyBArgamlEvpeudCh6T-x7YjMIHJdM676TA",
-    authDomain: "mathy-7ae76.firebaseapp.com",
-    projectId: "mathy-7ae76",
-    storageBucket: "mathy-7ae76.appspot.com",
-    messagingSenderId: "535881764331",
-    appId: "1:535881764331:web:cb0d232921ea579f8f5dae",
-    measurementId: "G-KJJ6LF2QFW"
-  };
+        // Calculate total score and recommendation
+        function calculateTotalScore() {
+            let total = 0;
+            for (let i = 1; i <= 7; i++) {
+                total += parseInt(document.getElementById(`c${i}_score`).innerText) || 0;
+            }
+            document.getElementById('total_score').innerText = total;
+            updateRecommendation(total);
+        }
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>
+        // Update recommendation
+        function updateRecommendation(total) {
+            let recommendation = document.getElementById('recommendation_text');
+            if (total >= 25) {
+                recommendation.innerText = 'Immediate Priority: Fast-track approval and resource allocation.';
+            } else if (total >= 20) {
+                recommendation.innerText = 'High Priority: Proceed with detailed planning and risk mitigation.';
+            } else if (total >= 15) {
+                recommendation.innerText = 'Moderate Priority: Advance with modifications and close monitoring.';
+            } else if (total >= 10) {
+                recommendation.innerText = 'Low Priority: Requires significant improvements; reassess feasibility.';
+            } else if (total >= 5) {
+                recommendation.innerText = 'Not Recommended: Major restructuring needed; low viability.';
+            } else {
+                recommendation.innerText = 'Reject: Unviable—discontinue consideration.';
+            }
+        }
+
+        // Event listeners for inputs
+        document.getElementById('c1_1_secured').addEventListener('input', () => calculateScore('c1_1', [parseFloat(document.getElementById('c1_1_secured').value) || 0, parseFloat(document.getElementById('c1_1_required').value) || 0], 'ratio'));
+        document.getElementById('c1_1_required').addEventListener('input', () => calculateScore('c1_1', [parseFloat(document.getElementById('c1_1_secured').value) || 0, parseFloat(document.getElementById('c1_1_required').value) || 0], 'ratio'));
+        document.getElementById('c1_2_years').addEventListener('input', () => calculateScore('c1_2', parseFloat(document.getElementById('c1_2_years').value) || 0, 'number'));
+        document.getElementById('c1_3_reserves').addEventListener('input', () => calculateScore('c1_3', [parseFloat(document.getElementById('c1_3_reserves').value) || 0, parseFloat(document.getElementById('c1_3_cost').value) || 0], 'ratio'));
+        document.getElementById('c1_3_cost').addEventListener('input', () => calculateScore('c1_3', [parseFloat(document.getElementById('c1_3_reserves').value) || 0, parseFloat(document.getElementById('c1_3_cost').value) || 0], 'ratio'));
+        document.getElementById('c1_4_sources').addEventListener('input', () => calculateScore('c1_4', parseFloat(document.getElementById('c1_4_sources').value) || 0, 'number'));
+        document.getElementById('c2_1_secured').addEventListener('input', () => calculateScore('c2_1', [parseFloat(document.getElementById('c2_1_secured').value) || 0, parseFloat(document.getElementById('c2_1_total').value) || 0], 'ratio'));
+        document.getElementById('c2_1_total').addEventListener('input', () => calculateScore('c2_1', [parseFloat(document.getElementById('c2_1_secured').value) || 0, parseFloat(document.getElementById('c2_1_total').value) || 0], 'ratio'));
+        document.getElementById('c2_2_terms').addEventListener('change', () => calculateScore('c2_2', document.getElementById('c2_2_terms').value, 'dropdown'));
+        document.getElementById('c2_3_months').addEventListener('input', () => calculateScore('c2_3', parseFloat(document.getElementById('c2_3_months').value) || 0, 'number'));
+        document.getElementById('c3_1_cost').addEventListener('input', () => calculateScore('c3_1', [parseFloat(document.getElementById('c3_1_cost').value) || 0, parseFloat(document.getElementById('c3_1_regional').value) || 0], 'ratio'));
+        document.getElementById('c3_1_regional').addEventListener('input', () => calculateScore('c3_1', [parseFloat(document.getElementById('c3_1_cost').value) || 0, parseFloat(document.getElementById('c3_1_regional').value) || 0], 'ratio'));
+        document.getElementById('c3_2_units').addEventListener('input', () => calculateScore('c3_2', [parseFloat(document.getElementById('c3_2_units').value) || 0, parseFloat(document.getElementById('c3_2_population').value) || 0], 'ratio'));
+        document.getElementById('c3_2_population').addEventListener('input', () => calculateScore('c3_2', [parseFloat(document.getElementById('c3_2_units').value) || 0, parseFloat(document.getElementById('c3_2_population').value) || 0], 'ratio'));
+        document.getElementById('c3_3_jobs').addEventListener('input', () => calculateScore('c3_3', parseFloat(document.getElementById('c3_3_jobs').value) || 0, 'number'));
+        document.getElementById('c4_1_size').addEventListener('input', () => calculateScore('c4_1', parseFloat(document.getElementById('c4_1_size').value) || 0, 'number'));
+        document.getElementById('c4_2_severity').addEventListener('change', () => calculateScore('c4_2', document.getElementById('c4_2_severity').value, 'dropdown'));
+        document.getElementById('c4_3_units').addEventListener('input', () => calculateScore('c4_3', [parseFloat(document.getElementById('c4_3_units').value) || 0, parseFloat(document.getElementById('c4_3_need').value) || 0], 'ratio'));
+        document.getElementById('c4_3_need').addEventListener('input', () => calculateScore('c4_3', [parseFloat(document.getElementById('c4_3_units').value) || 0, parseFloat(document.getElementById('c4_3_need').value) || 0], 'ratio'));
+        document.getElementById('c5_1_populations').addEventListener('input', () => calculateScore('c5_1', parseFloat(document.getElementById('c5_1_populations').value) || 0, 'number'));
+        document.getElementById('c5_2_alignment').addEventListener('change', () => calculateScore('c5_2', document.getElementById('c5_2_alignment').value, 'dropdown'));
+        document.getElementById('c5_3_practices').addEventListener('input', () => calculateScore('c5_3', parseFloat(document.getElementById('c5_3_practices').value) || 0, 'number'));
+        document.getElementById('c6_1_months').addEventListener('input', () => calculateScore('c6_1', parseFloat(document.getElementById('c6_1_months').value) || 0, 'number'));
+        document.getElementById('c6_2_months').addEventListener('input', () => calculateScore('c6_2', parseFloat(document.getElementById('c6_2_months').value) || 0, 'number'));
+        document.getElementById('c6_3_population').addEventListener('change', () => calculateScore('c6_3', parseFloat(document.getElementById('c6_3_distance').value) || 0, 'number'));
+        document.getElementById('c6_3_distance').addEventListener('input', () => calculateScore('c6_3', parseFloat(document.getElementById('c6_3_distance').value) || 0, 'number'));
+        document.getElementById('c7_1_revenue').addEventListener('input', () => calculateScore('c7_1', [parseFloat(document.getElementById('c7_1_revenue').value) || 0, parseFloat(document.getElementById('c7_1_costs').value) || 0], 'ratio'));
+        document.getElementById('c7_1_costs').addEventListener('input', () => calculateScore('c7_1', [parseFloat(document.getElementById('c7_1_revenue').value) || 0, parseFloat(document.getElementById('c7_1_costs').value) || 0], 'ratio'));
+        document.getElementById('c7_2_maintenance').addEventListener('input', () => calculateScore('c7_2', [parseFloat(document.getElementById('c7_2_maintenance').value) || 0, parseFloat(document.getElementById('c7_2_project').value) || 0], 'ratio'));
+        document.getElementById('c7_2_project').addEventListener('input', () => calculateScore('c7_2', [parseFloat(document.getElementById('c7_2_maintenance').value) || 0, parseFloat(document.getElementById('c7_2_project').value) || 0], 'ratio'));
+        document.getElementById('c7_3_services').addEventListener('change', () => calculateScore('c7_3', document.getElementById('c7_3_services').value, 'dropdown'));
+
+        // Submit scores via email
+        function submitScores() {
+            let projectName = document.getElementById('project_name').value || 'Unnamed Project';
+            let evaluatorName = document.getElementById('evaluator_name').value || 'Unknown Evaluator';
+            let evaluationDate = document.getElementById('evaluation_date').value || 'N/A';
+            let evaluatorEmail = document.getElementById('evaluator_email').value || 'N/A';
+            let totalScore = document.getElementById('total_score').innerText;
+            let recommendation = document.getElementById('recommendation_text').innerText;
+
+            let emailBody = `Siloam Mission Housing Project Evaluation\n\n`;
+            emailBody += `Project Name: ${projectName}\n`;
+            emailBody += `Evaluator Name: ${evaluatorName}\n`;
+            emailBody += `Evaluation Date: ${evaluationDate}\n`;
+            emailBody += `Evaluator Email: ${evaluatorEmail}\n\n`;
+            emailBody += `Criterion Scores:\n`;
+            for (let i = 1; i <= 7; i++) {
+                emailBody += `Criterion ${i}: ${document.getElementById(`c${i}_score`).innerText}\n`;
+                let subCriteria = i === 1 ? 4 : 3;
+                for (let j = 1; j <= subCriteria; j++) {
+                    let inputValue;
+                    if (['c1_1', 'c1_3', 'c2_1', 'c3_1', 'c3_2', 'c4_3', 'c7_1', 'c7_2'].includes(`c${i}_${j}`)) {
+                        let field1 = document.getElementById(`c${i}_${j}_${['secured','reserves','secured','cost','units','units','revenue','maintenance'][j-1+(i-1)*3]}`).value;
+                        let field2 = document.getElementById(`c${i}_${j}_${['required','cost','total','regional','population','need','costs','project'][j-1+(i-1)*3]}`).value;
+                        inputValue = `${field1}/${field2}`;
+                    } else if (['c6_3'].includes(`c${i}_${j}`)) {
+                        let population = document.getElementById('c6_3_population').value;
+                        let distance = document.getElementById('c6_3_distance').value;
+                        inputValue = `${population}, ${distance}m`;
+                    } else {
+                        inputValue = document.getElementById(`c${i}_${j}_${['years','sources','terms','months','jobs','size','severity','populations','alignment','practices','months','months','distance','services'][j-1+(i-1)*3]}`).value;
+                    }
+                    emailBody += `  ${i}.${j} Score: ${document.getElementById(`c${i}_${j}_score`).value} (Input: ${inputValue || 'N/A'})\n`;
+                }
+            }
+            emailBody += `\nTotal Score: ${totalScore}/35\n`;
+            emailBody += `Recommendation: ${recommendation}\n`;
+
+            let mailtoLink = `mailto:rifat.rupok@siloam.ca?subject=Siloam Mission Scoring Sheet - ${projectName}&body=${encodeURIComponent(emailBody)}`;
+            window.location.href = mailtoLink;
+        }
+    </script>
 </body>
 </html>
